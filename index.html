@@ -89,7 +89,7 @@
   .sum-lbl { font-size: 10px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.6px; }
 
   .tab-row { display: flex; gap: 0; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; padding: 3px; margin: 14px 20px 0; }
-  .tab-btn { flex: 1; background: none; border: none; border-radius: 6px; color: #888; font-size: 13px; font-weight: 600; padding: 9px; cursor: pointer; }
+  .tab-btn { flex: 1; background: none; border: none; border-radius: 6px; color: #888; font-size: 11px; font-weight: 600; padding: 8px 2px; cursor: pointer; line-height: 1.2; }
   .tab-btn.active { background: #8B0000; color: #fff; }
 
   .coach-section { display: none; padding: 16px 20px; }
@@ -497,14 +497,21 @@
 
   async function loadRoster() {
     rosterLoaded = true;
-    document.getElementById('roster-list').innerHTML = '<div class="loading-spinner-wrap"><span class="spinner show"></span></div>';
+    const ul = document.getElementById('roster-list');
+    ul.innerHTML = '<div class="athlete-search-result">Loading roster...</div>';
     try {
       const resp = await fetch(SCRIPT_URL + '?action=getRoster');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       rosterNames = data.roster || [];
-      renderRosterList(rosterNames);
+      if (!rosterNames.length) {
+        ul.innerHTML = '<div class="athlete-search-result">No athletes returned from sheet</div>';
+      } else {
+        renderRosterList(rosterNames);
+      }
     } catch (err) {
-      document.getElementById('roster-list').innerHTML = '<div class="athlete-search-result">Could not load roster: ' + err.message + '</div>';
+      rosterLoaded = false; // allow retry on next click
+      ul.innerHTML = '<div class="athlete-search-result">⚠ Could not load: ' + err.message + ' — tap Coach Roster again to retry</div>';
     }
   }
 
@@ -610,6 +617,17 @@
         target.innerHTML = '<div class="athlete-search-result">⚠ ' + data.error + '</div>';
         return;
       }
+
+      // Strip any data points where the date label is "PRs" -- these are
+      // PR snapshot values, not real session data, and make charts look
+      // like regressions from the very first point.
+      const cleanSeries = {};
+      for (const [key, points] of Object.entries(data.series || {})) {
+        cleanSeries[key] = points.filter(p => {
+          const d = String(p.date || '').trim().toUpperCase();
+          return d !== 'PRS' && d !== 'PR';
+        });
+      }
       target.innerHTML =
         '<button class="back-link" id="back-' + targetElId + '">‹ Back to search</button>' +
         '<div class="dashboard-name-header">' + data.athleteName + '</div>' +
@@ -623,7 +641,7 @@
         target.innerHTML = '';
       });
 
-      drawCharts(data.series || {});
+      drawCharts(cleanSeries);
     } catch (err) {
       target.innerHTML = '<div class="athlete-search-result">⚠ Could not load data: ' + err.message + '</div>';
     }
