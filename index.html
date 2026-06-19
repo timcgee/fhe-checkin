@@ -497,22 +497,57 @@
 
   async function loadRoster() {
     rosterLoaded = true;
-    const ul = document.getElementById('roster-list');
-    ul.innerHTML = '<div class="athlete-search-result">Loading roster...</div>';
-    try {
-      const resp = await fetch(SCRIPT_URL + '?action=getRoster');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      rosterNames = data.roster || [];
-      if (!rosterNames.length) {
-        ul.innerHTML = '<div class="athlete-search-result">No athletes returned from sheet</div>';
-      } else {
-        renderRosterList(rosterNames);
-      }
-    } catch (err) {
-      rosterLoaded = false; // allow retry on next click
-      ul.innerHTML = '<div class="athlete-search-result">⚠ Could not load: ' + err.message + ' — tap Coach Roster again to retry</div>';
+    // Use the hardcoded athlete list for instant display -- no fetch needed.
+    // This is more reliable than waiting for the script and avoids CORS issues.
+    rosterNames = ATHLETES.map(a => a.name);
+    renderRosterList(rosterNames);
+  }
+
+  /**
+   * Normalizes broad jump values to decimal feet for consistent charting.
+   * Handles mixed formats from the sheet:
+   *   "9'10\""  -> 9.833  (feet + inches / 12)
+   *   "10'"     -> 10.0
+   *   "9'11"    -> 9.917
+   *   9.9       -> 9.75   (treat decimal as feet.inches, not feet.tenths)
+   *   10        -> 10.0
+   */
+  function normalizeBroadJump(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const s = String(val).trim();
+
+    // Feet-inches string format: 9'10" or 9'10 or 10' etc.
+    const feetInchesMatch = s.match(/^(\d+)'(\d+)/);
+    if (feetInchesMatch) {
+      return parseFloat(feetInchesMatch[1]) + parseFloat(feetInchesMatch[2]) / 12;
     }
+    // Feet-only string: 10'
+    const feetOnlyMatch = s.match(/^(\d+)'/);
+    if (feetOnlyMatch) return parseFloat(feetOnlyMatch[1]);
+
+    // Numeric: treat decimal part as inches (e.g. 9.9 = 9 feet 9 inches)
+    const num = parseFloat(s);
+    if (!isNaN(num)) {
+      const feet = Math.floor(num);
+      const inchesDecimal = Math.round((num - feet) * 10); // e.g. .9 -> 9 inches
+      return feet + inchesDecimal / 12;
+    }
+    return null;
+  }
+
+  function formatBroadJumpLabel(val) {
+    if (val === null || val === undefined || val === '') return '';
+    const s = String(val).trim();
+    // If already in feet-inches format, return as-is
+    if (s.includes("'")) return s;
+    // If numeric, convert to feet-inches display
+    const num = parseFloat(s);
+    if (!isNaN(num)) {
+      const feet = Math.floor(num);
+      const inches = Math.round((num - feet) * 10);
+      return feet + "'" + inches + '"';
+    }
+    return s;
   }
 
   function renderRosterList(names) {
@@ -536,7 +571,10 @@
   function renderPRGrid(prs) {
     let html = '<div class="pr-grid">';
     for (const [key, meta] of Object.entries(PR_LABELS)) {
-      const val = prs && prs[key];
+      let val = prs && prs[key];
+      if (key === 'broadJump' && val !== null && val !== undefined && val !== '') {
+        val = formatBroadJumpLabel(val);
+      }
       html += '<div class="pr-card"><div class="pr-card-label">' + meta.label + '</div><div class="pr-card-value">' + (val !== null && val !== undefined && val !== '' ? val + meta.unit : '<span class="pr-card-empty">—</span>') + '</div></div>';
     }
     html += '</div>';
@@ -554,16 +592,33 @@
   function drawCharts(series) {
     destroyCharts();
     CHART_METRICS.forEach(m => {
-      const points = series[m.key] || [];
+      const rawPoints = series[m.key] || [];
+
+      // Normalize broad jump values to decimal feet for charting
+      let points = rawPoints;
+      if (m.key === 'broadJump') {
+        points = rawPoints.map(p => {
+          const normalized = normalizeBroadJump(p.value);
+          if (normalized === null) return null;
+          return { ...p, value: normalized, displayValue: formatBroadJumpLabel(p.value) };
+        }).filter(p => p !== null);
+      }
+
       const canvas = document.getElementById('chart-' + m.key);
-      const wrap = canvas.parentElement;
+      const wrap = canvas ? canvas.parentElement : null;
+      if (!wrap) return;
       if (!points.length) {
         wrap.innerHTML = '<div class="chart-empty">No data yet</div>';
         return;
       }
       const latest = points[points.length - 1];
       const latestEl = document.getElementById('latest-' + m.key);
-      if (latestEl) latestEl.textContent = 'Latest: ' + latest.value + (latest.reps ? ' x' + latest.reps : '');
+      if (latestEl) {
+        const latestDisplay = m.key === 'broadJump'
+          ? (latest.displayValue || formatBroadJumpLabel(latest.value))
+          : latest.value;
+        latestEl.textContent = 'Latest: ' + latestDisplay + (latest.reps ? ' x' + latest.reps : '');
+      }
 
       const chart = new Chart(canvas, {
         type: 'line',
@@ -589,7 +644,12 @@
               callbacks: {
                 label: function(context) {
                   const p = points[context.dataIndex];
-                  let label = m.label + ': ' + p.value;
+                  let label = m.label + ': ';
+                  if (m.key === 'broadJump') {
+                    label += (p.displayValue || formatBroadJumpLabel(p.value));
+                  } else {
+                    label += p.value;
+                  }
                   if (p.reps) label += ' x ' + p.reps + ' reps';
                   return label;
                 }
@@ -598,7 +658,18 @@
           },
           scales: {
             x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#2a2a2a' } },
-            y: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#2a2a2a' } }
+            y: {
+              ticks: {
+                color: '#888',
+                font: { size: 10 },
+                callback: m.key === 'broadJump' ? function(val) {
+                  const feet = Math.floor(val);
+                  const inches = Math.round((val - feet) * 12);
+                  return feet + "'" + inches + '"';
+                } : undefined
+              },
+              grid: { color: '#2a2a2a' }
+            }
           }
         }
       });
