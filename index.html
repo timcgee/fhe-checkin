@@ -1,1 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FHE Football Check-In</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #1a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #1a0a0a; }
+
+  .header { background: #8B0000; padding: 18px 20px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #000; }
+  .header-mark { width: 46px; height: 46px; border-radius: 50%; background: #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; }
+  .header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+  .header p { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 1px; }
+  .header-hawk { margin-left: auto; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6); letter-spacing: 0.5px; }
+
+  .test-bar { background: #2a1a00; border-bottom: 1px solid #5a4000; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .test-label { font-size: 12px; color: #ffa726; font-weight: 600; }
+  .test-toggle { background: #111; border: 1px solid #ffa726; color: #ffa726; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .test-toggle.on { background: #ffa726; color: #1a0a00; }
+
+  .session-bar { background: #111; border-bottom: 1px solid #333; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .session-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.8px; }
+  .session-value { font-size: 13px; color: #fff; font-weight: 600; margin-top: 2px; }
+  .session-time { font-size: 14px; color: #ccc; font-variant-numeric: tabular-nums; }
+
+  .status-banner { margin: 16px 20px 0; padding: 12px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; align-items: center; gap: 8px; }
+  .status-banner.on-time { background: #1a3a1a; color: #4caf50; border: 1px solid #2d5a2d; }
+  .status-banner.late { background: #3a2a00; color: #ffa726; border: 1px solid #5a4000; }
+  .status-banner.error { background: #3a1a1a; color: #ef5350; border: 1px solid #5a2d2d; }
+  .status-banner.show { display: flex; }
+
+  .no-session { margin: 16px 20px; padding: 32px 16px; text-align: center; background: #1a1a1a; border: 1px dashed #444; border-radius: 10px; }
+  .no-session-icon { font-size: 32px; margin-bottom: 10px; }
+  .no-session-title { font-size: 16px; font-weight: 700; color: #ccc; }
+  .no-session-sub { font-size: 13px; color: #777; margin-top: 6px; line-height: 1.4; }
+
+  .section { padding: 16px 20px; }
+  .section-title { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+  .search-wrap { position: relative; margin-bottom: 10px; }
+  .search-wrap input { width: 100%; background: #222; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 16px; padding: 12px 14px 12px 38px; outline: none; }
+  .search-wrap input:focus { border-color: #8B0000; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px; }
+
+  .player-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+  .player-item { background: #222; border: 1px solid #333; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .player-item:active { border-color: #8B0000; background: #2a0000; }
+  .player-item.selected { border-color: #8B0000; background: #2a0000; }
+  .player-name { font-size: 15px; font-weight: 600; }
+  .player-grade { font-size: 12px; color: #888; }
+  .player-checked { color: #4caf50; font-size: 12px; font-weight: 600; display: none; }
+  .player-item.checked-in .player-checked { display: block; }
+  .player-item.checked-in { opacity: 0.55; }
+
+  .selected-card { background: #1f0000; border: 2px solid #8B0000; border-radius: 10px; padding: 16px; margin-bottom: 12px; display: none; }
+  .selected-card.show { display: block; }
+  .selected-name { font-size: 19px; font-weight: 700; color: #fff; }
+  .selected-sub { font-size: 13px; color: #aaa; margin-top: 3px; }
+  .points-preview { margin-top: 12px; display: flex; gap: 8px; }
+  .pts-chip { flex: 1; background: #111; border: 1px solid #444; border-radius: 6px; padding: 10px 8px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+  .pts-chip.active { border-color: #8B0000; background: #2a0000; }
+  .pts-chip .pts-num { font-size: 19px; font-weight: 700; }
+  .pts-chip .pts-label { font-size: 10px; color: #888; margin-top: 3px; line-height: 1.2; }
+  .pts-chip.on-time .pts-num { color: #4caf50; }
+  .pts-chip.late .pts-num { color: #ffa726; }
+  .pts-chip.wrong-shirt .pts-num { color: #ef5350; }
+
+  .checkin-btn { width: 100%; background: #8B0000; color: #fff; border: none; border-radius: 8px; padding: 15px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 12px; letter-spacing: 0.3px; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .checkin-btn:active { background: #a00000; }
+  .checkin-btn:disabled { background: #444; cursor: not-allowed; }
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .spinner.show { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .log-item { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 7px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+  .log-pts { font-weight: 700; font-size: 14px; }
+  .log-pts.green { color: #4caf50; }
+  .log-pts.amber { color: #ffa726; }
+  .log-time { font-size: 11px; color: #666; }
+  .log-name { font-weight: 600; }
+  .empty-log { font-size: 13px; color: #555; text-align: center; padding: 24px 0; }
+
+  .summary-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .sum-card { flex: 1; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 24px; font-weight: 700; }
+  .sum-lbl { font-size: 10px; color: #666; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.6px; }
+
+  .tab-row { display: flex; gap: 0; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; padding: 3px; margin: 14px 20px 0; }
+  .tab-btn { flex: 1; background: none; border: none; border-radius: 6px; color: #888; font-size: 11px; font-weight: 600; padding: 8px 2px; cursor: pointer; line-height: 1.2; }
+  .tab-btn.active { background: #8B0000; color: #fff; }
+
+  .coach-section { display: none; padding: 16px 20px; }
+  .export-btn { width: 100%; background: none; border: 1px solid #444; border-radius: 8px; color: #aaa; font-size: 13px; padding: 12px; cursor: pointer; margin-top: 10px; }
+  .export-btn:active { border-color: #8B0000; color: #fff; }
+
+  .quarter-pill { display: inline-block; background: #2a0000; color: #ff8a80; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; border: 1px solid #5a1a1a; margin-top: 4px; }
+
+  /* Progress dashboard */
+  .pr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .pr-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 14px; }
+  .pr-card-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .pr-card-value { font-size: 22px; font-weight: 700; color: #ff8a80; }
+  .pr-card-empty { color: #555; font-size: 16px; }
+  .chart-block { margin-bottom: 24px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .chart-title .chart-latest { font-size: 12px; color: #888; font-weight: 400; }
+  .chart-canvas-wrap { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 8px; height: 180px; position: relative; }
+  .chart-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #555; font-size: 13px; }
+  .athlete-search-result { font-size: 13px; color: #888; padding: 12px 0; text-align: center; }
+  .dashboard-name-header { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .dashboard-sub { font-size: 13px; color: #888; margin-bottom: 18px; }
+  .back-link { background: none; border: none; color: #ff8a80; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; margin-bottom: 14px; display: flex; align-items: center; gap: 4px; }
+  .loading-spinner-wrap { display: flex; align-items: center; justify-content: center; padding: 40px 0; }
+  .loading-spinner-wrap .spinner { display: inline-block; width: 22px; height: 22px; border-width: 3px; }
+
+  /* Attendance card */
+  .attendance-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+  .attendance-title { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+  .attendance-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .att-chip { flex: 1; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px; text-align: center; }
+  .att-chip-num { font-size: 18px; font-weight: 700; color: #ff8a80; }
+  .att-chip-label { font-size: 10px; color: #888; margin-top: 2px; }
+  .att-streak { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #2a2a2a; }
+  .att-streak-num { font-size: 20px; font-weight: 700; color: #4caf50; }
+  .att-streak-label { font-size: 12px; color: #888; }
+  .att-bar-wrap { height: 6px; background: #2a2a2a; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .att-bar { height: 100%; background: #8B0000; border-radius: 3px; transition: width 0.4s; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-mark">🏈</div>
+    <div>
+      <h1>FHE Football</h1>
+      <p>Summer training check-in</p>
+    </div>
+    <div class="header-hawk">HAWKS</div>
+  </div>
+
+  <div class="test-bar">
+    <div class="test-label">🧪 Test mode (skips date check)</div>
+    <button class="test-toggle" id="test-toggle">Off</button>
+  </div>
+
+  <div class="session-bar">
+    <div>
+      <div class="session-label">Today's session</div>
+      <div class="session-value" id="session-name">Loading...</div>
+    </div>
+    <div style="text-align:right">
+      <div class="session-label">Current time</div>
+      <div class="session-time" id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab-btn active" id="tab-checkin">Check-In</button>
+    <button class="tab-btn" id="tab-myprogress">My Progress</button>
+    <button class="tab-btn" id="tab-coach">Coach view</button>
+    <button class="tab-btn" id="tab-roster">Coach Roster</button>
+  </div>
+
+  <div id="status-banner" class="status-banner"></div>
+  <div id="no-session" class="no-session" style="display:none;">
+    <div class="no-session-icon">📅</div>
+    <div class="no-session-title" id="no-session-title">No session today</div>
+    <div class="no-session-sub" id="no-session-sub">Check back on the next lift day.</div>
+  </div>
+
+  <div id="checkin-tab">
+    <div class="section" id="active-checkin-area">
+      <div class="section-title">Find athlete</div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search" placeholder="Type name to search..." autocomplete="off">
+      </div>
+      <div class="player-list" id="player-list"></div>
+    </div>
+
+    <div class="section" id="selected-area" style="padding-top:0;">
+      <div class="selected-card" id="selected-card">
+        <div class="selected-name" id="sel-name">—</div>
+        <div class="selected-sub" id="sel-sub">Select a check-in type</div>
+        <div class="points-preview">
+          <div class="pts-chip on-time active" id="chip-ontime">
+            <div class="pts-num">10</div>
+            <div class="pts-label">On time</div>
+          </div>
+          <div class="pts-chip late" id="chip-late">
+            <div class="pts-num">5</div>
+            <div class="pts-label">Late</div>
+          </div>
+          <div class="pts-chip wrong-shirt" id="chip-ws">
+            <div class="pts-num">9</div>
+            <div class="pts-label">On time / wrong shirt</div>
+          </div>
+        </div>
+        <div class="points-preview" style="margin-top:6px;">
+          <div class="pts-chip late" id="chip-wsl" style="flex:none;width:48%;">
+            <div class="pts-num">4</div>
+            <div class="pts-label">Late / wrong shirt</div>
+          </div>
+        </div>
+        <button class="checkin-btn" id="checkin-btn"><span>Check in</span><span class="spinner" id="spinner"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="coach-section" id="coach-tab">
+    <div class="summary-row">
+      <div class="sum-card"><div class="sum-num" id="cnt-ontime" style="color:#4caf50">0</div><div class="sum-lbl">On time</div></div>
+      <div class="sum-card"><div class="sum-num" id="cnt-late" style="color:#ffa726">0</div><div class="sum-lbl">Late</div></div>
+      <div class="sum-card"><div class="sum-num" id="cnt-total" style="color:#fff">0</div><div class="sum-lbl">Checked in</div></div>
+    </div>
+    <div class="section-title" style="padding: 0 0 8px;">Today's log</div>
+    <div class="log-list" id="log-list"><div class="empty-log">No check-ins yet today.</div></div>
+    <button class="export-btn" id="export-btn">⬇ Export CSV backup</button>
+  </div>
+
+  <div class="coach-section" id="myprogress-tab">
+    <div class="section">
+      <div class="section-title">Find your name</div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="myprogress-search" placeholder="Type your name..." autocomplete="off">
+      </div>
+      <div id="myprogress-results"></div>
+    </div>
+    <div id="myprogress-dashboard"></div>
+  </div>
+
+  <div class="coach-section" id="roster-tab">
+    <div class="section">
+      <div class="section-title">Browse roster</div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="roster-search" placeholder="Search athletes..." autocomplete="off">
+      </div>
+      <div class="player-list" id="roster-list"></div>
+    </div>
+    <div id="roster-dashboard"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+(function() {
+  // ===== CONFIG: paste your Apps Script Web App URL below =====
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxUyyNl1HpaV5c9Du1Rat_QVRMrWF36jYhFNkYXqQextyYv_sQnekcASLVVwPRCAWAu/exec';
+
+  const SCHEDULE = {
+    '2026-06-23': { hour: 10, quarter: 'Q2' },
+    '2026-06-24': { hour: 10, quarter: 'Q2' },
+    '2026-06-25': { hour: 10, quarter: 'Q2' },
+    '2026-07-07': { hour: 7,  quarter: 'Q2' },
+    '2026-07-08': { hour: 10, quarter: 'Q2' },
+    '2026-07-09': { hour: 10, quarter: 'Q2' },
+    '2026-07-14': { hour: 10, quarter: 'Q3' },
+    '2026-07-15': { hour: 10, quarter: 'Q3' },
+    '2026-07-16': { hour: 10, quarter: 'Q3' },
+    '2026-07-21': { hour: 7,  quarter: 'Q3' },
+    '2026-07-22': { hour: 10, quarter: 'Q3' },
+    '2026-07-23': { hour: 10, quarter: 'Q3' },
+    '2026-07-28': { hour: 10, quarter: 'Q4' },
+    '2026-07-29': { hour: 10, quarter: 'Q4' },
+    '2026-07-30': { hour: 10, quarter: 'Q4' },
+  };
+
+  function todayKey(d) {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + day;
+  }
+
+  const ATHLETES = [
+    {name:'Edvin Sales',yr:12},{name:'Luke Rosenbrook',yr:12},{name:'Eli Ludovico',yr:11},
+    {name:'Brady Blake',yr:11},{name:'Jack Kerjes',yr:9},{name:'Mason Scott',yr:10},
+    {name:'Drew Ferrick',yr:12},{name:'Jack Iacopelli',yr:10},{name:'Zach Payne',yr:11},
+    {name:'Kaden Wildern',yr:10},{name:'Garrett Johns',yr:12},{name:'Jacob Bartley',yr:12},
+    {name:'Evan Nowicki',yr:0},{name:'Eli Challa',yr:12},{name:'Miles Donley',yr:11},
+    {name:'Kyle Ritzema',yr:10},{name:'Gabriel Owczarzak',yr:9},{name:'Connor Sowinski',yr:12},
+    {name:'Gabe Cavazos',yr:11},{name:'Abram Ranson',yr:11},{name:'Will Stein',yr:11},
+    {name:'Benjamin Kaminski',yr:9},{name:'Conner Helminski',yr:12},{name:'Emery Hindman',yr:10},
+    {name:'Harley Hoexum',yr:10},{name:'Tyler Adrion',yr:11},{name:'Colt Mueller',yr:11},
+    {name:'Oliver Hageman',yr:9},{name:'Jordan Shabazz',yr:12},{name:'Preston Ness',yr:9},
+    {name:'Kyle Kincaid',yr:10},{name:'Alexander Cahill',yr:9},{name:'Ben Trapp',yr:10},
+    {name:'Giuseppe Lange',yr:10},{name:'Tyler Martin',yr:10},{name:'Emilio Werschitz',yr:9},
+    {name:'Carter Noyes',yr:12},{name:'Logan Ford',yr:10},{name:'Parker Mann',yr:10},
+    {name:'Francis Donkoh',yr:10},{name:'Logan Patterson',yr:0},{name:'Eli Langejans',yr:11},
+    {name:'Aaron Roy',yr:11},{name:'Logan Kincaid',yr:10},{name:'Evan Johnson',yr:10},
+    {name:'Jakson Wildern',yr:12},{name:'Keegan Davies',yr:9},{name:'Austin Mueller',yr:11},
+    {name:'Shane Martin',yr:10},{name:'Kyle Decker',yr:11},{name:"Carson D'Alessandro",yr:10},
+    {name:'Jack Evans',yr:11},{name:'Bradley Burds',yr:9},{name:'Reece Syrba',yr:12},
+    {name:'Vince Verwys',yr:10},{name:'John Lueder',yr:9},{name:'Nolan Wong',yr:9},
+    {name:'Joseph Gleason',yr:9},{name:'Sam Yared',yr:12},{name:'Max Langdon',yr:12},
+    {name:'David Vincent',yr:12},{name:'Bryce Barcheski',yr:10},{name:'Ralphie Elliott',yr:10},
+    {name:"Gavin O'Dell",yr:12},{name:'Crew Orange',yr:0},{name:'Ben Stotts',yr:12},
+    {name:'Christian Lutey',yr:10},{name:'Nick Streeter',yr:0},{name:'Maddox Beard',yr:10},
+    {name:'Liam Bray',yr:12},{name:'Kaelan Butler',yr:9},{name:'Scott Cahill',yr:9},
+    {name:'Brady Haarman',yr:9},{name:'Cameron Hall',yr:12},{name:'Oscar Heaford',yr:10},
+    {name:'Ben Hostetler',yr:11},{name:'Markell Matthews',yr:11},{name:'Odaire Matthews',yr:12}
+  ].sort((a,b)=>a.name.localeCompare(b.name));
+
+  let selected = null;
+  let selectedType = 'on-time';
+  let selectedPts = 10;
+  let checkedIn = {};
+  let log = [];
+  let activeSession = null;
+  let submitting = false;
+  let testMode = false;
+
+  function fmtHour(h) { return h === 7 ? '7:00 AM' : '10:00 AM'; }
+
+  function refreshSession() {
+    const now = new Date();
+    const key = todayKey(now);
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    const sched = SCHEDULE[key];
+    if (sched || testMode) {
+      activeSession = sched || { hour: 10, quarter: 'TEST' };
+      const pillLabel = sched ? (sched.quarter + ' · cutoff ' + fmtHour(sched.hour)) : 'TEST MODE · no real date match';
+      document.getElementById('session-name').innerHTML = dateStr + '<br><span class="quarter-pill">' + pillLabel + '</span>';
+      document.getElementById('no-session').style.display = 'none';
+      document.getElementById('active-checkin-area').style.display = 'block';
+      document.getElementById('selected-area').style.display = 'block';
+    } else {
+      activeSession = null;
+      document.getElementById('session-name').textContent = dateStr;
+      document.getElementById('no-session').style.display = 'block';
+      document.getElementById('active-checkin-area').style.display = 'none';
+      document.getElementById('selected-area').style.display = 'none';
+      const isDeadWeek = key >= '2026-06-30' && key <= '2026-07-06';
+      document.getElementById('no-session-title').textContent = isDeadWeek ? 'Dead week — no lifting' : 'No session today';
+      document.getElementById('no-session-sub').textContent = isDeadWeek ? 'Dead week runs 6/30 – 7/6. Check-in resumes 7/7 at 7:00 AM.' : 'Check the team calendar for the next scheduled lift, or turn on test mode above to try the app now.';
+    }
+  }
+
+  function isOnTime() {
+    if (!activeSession) return true;
+    const now = new Date();
+    return now.getHours() < activeSession.hour || (now.getHours() === activeSession.hour && now.getMinutes() === 0);
+  }
+
+  function renderList(athletes) {
+    const ul = document.getElementById('player-list');
+    ul.innerHTML = '';
+    if (!athletes.length) {
+      ul.innerHTML = '<div style="text-align:center;color:#555;font-size:13px;padding:20px 0;">No athletes found</div>';
+      return;
+    }
+    athletes.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'player-item' + (checkedIn[a.name] ? ' checked-in' : '') + (selected && selected.name===a.name ? ' selected' : '');
+      div.innerHTML = '<div><div class="player-name">' + a.name + '</div><div class="player-grade">' + (a.yr ? 'Grade ' + a.yr : 'Ungraded') + '</div></div><div class="player-checked">✓ Checked in</div>';
+      div.onclick = () => selectPlayer(a);
+      ul.appendChild(div);
+    });
+  }
+
+  function filterPlayers() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const filtered = q ? ATHLETES.filter(a => a.name.toLowerCase().includes(q)) : ATHLETES;
+    renderList(filtered);
+  }
+
+  function selectPlayer(a) {
+    if (checkedIn[a.name] || !activeSession) return;
+    selected = a;
+    document.getElementById('sel-name').textContent = a.name;
+    const onT = isOnTime();
+    document.getElementById('sel-sub').textContent = onT
+      ? ('On time — cutoff is ' + fmtHour(activeSession.hour))
+      : ('Past the ' + fmtHour(activeSession.hour) + ' cutoff');
+    selectedType = onT ? 'on-time' : 'late';
+    selectedPts = onT ? 10 : 5;
+    document.querySelectorAll('.pts-chip').forEach(c => c.classList.remove('active'));
+    document.getElementById(onT ? 'chip-ontime' : 'chip-late').classList.add('active');
+    document.getElementById('selected-card').classList.add('show');
+    filterPlayers();
+  }
+
+  function selectType(type, pts) {
+    selectedType = type;
+    selectedPts = pts;
+    document.querySelectorAll('.pts-chip').forEach(c => c.classList.remove('active'));
+    const map = {'on-time':'chip-ontime','late':'chip-late','wrong-shirt-on-time':'chip-ws','wrong-shirt-late':'chip-wsl'};
+    document.getElementById(map[type]).classList.add('active');
+  }
+
+  function showBanner(text, cls) {
+    const banner = document.getElementById('status-banner');
+    banner.textContent = text;
+    banner.className = 'status-banner show ' + cls;
+    setTimeout(() => { banner.classList.remove('show'); }, 6000);
+  }
+
+  async function doCheckin() {
+    if (!selected || submitting) return;
+    submitting = true;
+    const btn = document.getElementById('checkin-btn');
+    const spinner = document.getElementById('spinner');
+    btn.disabled = true;
+    spinner.classList.add('show');
+
+    const athleteName = selected.name;
+    const points = selectedPts;
+    const checkinType = selectedType;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+    try {
+      const resp = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ athleteName: athleteName, points: points, checkinType: checkinType })
+      });
+      const result = await resp.json();
+
+      if (result.success) {
+        checkedIn[athleteName] = { type: checkinType, pts: points, time: timeStr };
+        log.unshift({ name: athleteName, type: checkinType, pts: points, time: timeStr, team: result.team });
+        showBanner('✓ ' + athleteName + ' written to sheet — ' + points + ' pts (' + result.team + "'s team)", points >= 9 ? 'on-time' : 'late');
+      } else {
+        showBanner('⚠ Sheet error: ' + (result.error || 'unknown'), 'error');
+      }
+    } catch (err) {
+      checkedIn[athleteName] = { type: checkinType, pts: points, time: timeStr };
+      log.unshift({ name: athleteName, type: checkinType, pts: points, time: timeStr, team: '?' });
+      showBanner('⚠ Could not reach script: ' + err.message, 'error');
+    }
+
+    updateCoachView();
+    selected = null;
+    document.getElementById('selected-card').classList.remove('show');
+    document.getElementById('search').value = '';
+    filterPlayers();
+    btn.disabled = false;
+    spinner.classList.remove('show');
+    submitting = false;
+  }
+
+  function updateCoachView() {
+    const ontime = Object.values(checkedIn).filter(c=>c.pts>=9).length;
+    const late = Object.values(checkedIn).filter(c=>c.pts>0&&c.pts<9).length;
+    document.getElementById('cnt-ontime').textContent = ontime;
+    document.getElementById('cnt-late').textContent = late;
+    document.getElementById('cnt-total').textContent = ontime+late;
+
+    const ll = document.getElementById('log-list');
+    if (!log.length) { ll.innerHTML = '<div class="empty-log">No check-ins yet today.</div>'; return; }
+    ll.innerHTML = log.map(l => {
+      const cls = l.pts >= 9 ? 'green' : 'amber';
+      return '<div class="log-item"><div><div class="log-name">' + l.name + '</div><div class="log-time">' + l.type.replace(/-/g,' ') + (l.team && l.team !== '?' ? ' · ' + l.team : '') + '</div></div><div style="text-align:right"><div class="log-pts ' + cls + '">+' + l.pts + ' pts</div><div class="log-time">' + l.time + '</div></div></div>';
+    }).join('');
+  }
+
+  function switchTab(tab) {
+    document.getElementById('tab-checkin').classList.toggle('active', tab==='checkin');
+    document.getElementById('tab-myprogress').classList.toggle('active', tab==='myprogress');
+    document.getElementById('tab-coach').classList.toggle('active', tab==='coach');
+    document.getElementById('tab-roster').classList.toggle('active', tab==='roster');
+    document.getElementById('checkin-tab').style.display = tab==='checkin' ? 'block' : 'none';
+    document.getElementById('myprogress-tab').style.display = tab==='myprogress' ? 'block' : 'none';
+    document.getElementById('coach-tab').style.display = tab==='coach' ? 'block' : 'none';
+    document.getElementById('roster-tab').style.display = tab==='roster' ? 'block' : 'none';
+    if (tab==='coach') updateCoachView();
+    if (tab==='roster' && !rosterLoaded) loadRoster();
+  }
+
+  // ===== Progress dashboard logic =====
+  let rosterLoaded = false;
+  let rosterNames = [];
+  const PR_LABELS = {
+    mph: { label: 'Top MPH', unit: '' },
+    momentum: { label: 'Momentum', unit: '' },
+    fiveTen: { label: '5-10', unit: 's' },
+    roll90: { label: 'Roll 90', unit: 's' },
+    broadJump: { label: 'Broad Jump', unit: '' },
+    bench: { label: 'Bench', unit: ' lb' },
+    squat: { label: 'Squat', unit: ' lb' },
+    deadlift: { label: 'Deadlift', unit: ' lb' }
+  };
+  const CHART_METRICS = [
+    { key: 'mph', label: 'MPH' },
+    { key: 'roll90', label: 'Roll 90' },
+    { key: 'fiveTen', label: '5-10' },
+    { key: 'broadJump', label: 'Broad jump' },
+    { key: 'bench', label: 'Bench' },
+    { key: 'squat', label: 'Squat' },
+    { key: 'deadlift', label: 'Deadlift' }
+  ];
+  let chartInstances = [];
+
+  async function fetchAthleteHistory(name) {
+    const url = SCRIPT_URL + '?action=getAthleteHistory&name=' + encodeURIComponent(name);
+    const resp = await fetch(url);
+    return await resp.json();
+  }
+
+  async function loadRoster() {
+    rosterLoaded = true;
+    // Use the hardcoded athlete list for instant display -- no fetch needed.
+    // This is more reliable than waiting for the script and avoids CORS issues.
+    rosterNames = ATHLETES.map(a => a.name);
+    renderRosterList(rosterNames);
+  }
+
+  /**
+   * Normalizes broad jump values to decimal feet for consistent charting.
+   * Handles mixed formats from the sheet:
+   *   "9'10\""  -> 9.833  (feet + inches / 12)
+   *   "10'"     -> 10.0
+   *   "9'11"    -> 9.917
+   *   9.9       -> 9.75   (treat decimal as feet.inches, not feet.tenths)
+   *   10        -> 10.0
+   */
+  function normalizeBroadJump(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const s = String(val).trim();
+
+    // Feet-inches string format: 9'10" or 9'10 or 10' etc.
+    const feetInchesMatch = s.match(/^(\d+)'(\d+)/);
+    if (feetInchesMatch) {
+      return parseFloat(feetInchesMatch[1]) + parseFloat(feetInchesMatch[2]) / 12;
+    }
+    // Feet-only string: 10'
+    const feetOnlyMatch = s.match(/^(\d+)'/);
+    if (feetOnlyMatch) return parseFloat(feetOnlyMatch[1]);
+
+    // Numeric: treat decimal part as inches (e.g. 9.9 = 9 feet 9 inches)
+    const num = parseFloat(s);
+    if (!isNaN(num)) {
+      const feet = Math.floor(num);
+      const inchesDecimal = Math.round((num - feet) * 10); // e.g. .9 -> 9 inches
+      return feet + inchesDecimal / 12;
+    }
+    return null;
+  }
+
+  function formatBroadJumpLabel(val) {
+    if (val === null || val === undefined || val === '') return '';
+    const s = String(val).trim();
+    // If already in feet-inches format, return as-is
+    if (s.includes("'")) return s;
+    // If numeric, convert to feet-inches display
+    const num = parseFloat(s);
+    if (!isNaN(num)) {
+      const feet = Math.floor(num);
+      const inches = Math.round((num - feet) * 10);
+      return feet + "'" + inches + '"';
+    }
+    return s;
+  }
+
+  function renderRosterList(names) {
+    const ul = document.getElementById('roster-list');
+    if (!names.length) { ul.innerHTML = '<div class="athlete-search-result">No athletes found</div>'; return; }
+    ul.innerHTML = '';
+    names.forEach(name => {
+      const div = document.createElement('div');
+      div.className = 'player-item';
+      div.innerHTML = '<div class="player-name">' + name + '</div>';
+      div.onclick = () => showDashboard(name, 'roster-dashboard');
+      ul.appendChild(div);
+    });
+  }
+
+  function destroyCharts() {
+    chartInstances.forEach(c => c.destroy());
+    chartInstances = [];
+  }
+
+  function renderAttendanceCard(att) {
+    if (!att) return '';
+    const quarters = ['Q2', 'Q3', 'Q4'];
+    let quartersHtml = '<div class="attendance-row">';
+    quarters.forEach(q => {
+      const d = att.byQuarter[q] || { attended: 0, total: 0, pct: 0 };
+      quartersHtml += '<div class="att-chip">' +
+        '<div class="att-chip-num">' + d.attended + '/' + d.total + '</div>' +
+        '<div class="att-chip-label">' + q + ' (' + d.pct + '%)</div>' +
+        '<div class="att-bar-wrap"><div class="att-bar" style="width:' + d.pct + '%"></div></div>' +
+        '</div>';
+    });
+    quartersHtml += '</div>';
+
+    const streakColor = att.streak >= 5 ? '#4caf50' : att.streak >= 3 ? '#ffa726' : '#ff5252';
+    const streakLabel = att.streak === 1 ? 'session streak' : 'session streak';
+
+    return '<div class="attendance-card">' +
+      '<div class="attendance-title">Attendance</div>' +
+      quartersHtml +
+      '<div class="att-streak">' +
+      '<div class="att-streak-num" style="color:' + streakColor + '">' + att.streak + '</div>' +
+      '<div class="att-streak-label">🔥 ' + streakLabel + ' &nbsp;·&nbsp; ' + att.totalAttended + ' total sessions attended</div>' +
+      '</div></div>';
+  }
+
+  function renderPRGrid(prs) {
+    let html = '<div class="pr-grid">';
+    for (const [key, meta] of Object.entries(PR_LABELS)) {
+      let val = prs && prs[key];
+      if (key === 'broadJump' && val !== null && val !== undefined && val !== '') {
+        val = formatBroadJumpLabel(val);
+      }
+      html += '<div class="pr-card"><div class="pr-card-label">' + meta.label + '</div><div class="pr-card-value">' + (val !== null && val !== undefined && val !== '' ? val + meta.unit : '<span class="pr-card-empty">—</span>') + '</div></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderChartsHTML() {
+    let html = '';
+    CHART_METRICS.forEach(m => {
+      html += '<div class="chart-block"><div class="chart-title"><span>' + m.label + ' over time</span><span class="chart-latest" id="latest-' + m.key + '"></span></div><div class="chart-canvas-wrap"><canvas id="chart-' + m.key + '"></canvas></div></div>';
+    });
+    return html;
+  }
+
+  function drawCharts(series) {
+    destroyCharts();
+    CHART_METRICS.forEach(m => {
+      const rawPoints = series[m.key] || [];
+
+      // Normalize broad jump values to decimal feet for charting
+      let points = rawPoints;
+      if (m.key === 'broadJump') {
+        points = rawPoints.map(p => {
+          const normalized = normalizeBroadJump(p.value);
+          if (normalized === null) return null;
+          return { ...p, value: normalized, displayValue: formatBroadJumpLabel(p.value) };
+        }).filter(p => p !== null);
+      }
+
+      const canvas = document.getElementById('chart-' + m.key);
+      const wrap = canvas ? canvas.parentElement : null;
+      if (!wrap) return;
+      if (!points.length) {
+        wrap.innerHTML = '<div class="chart-empty">No data yet</div>';
+        return;
+      }
+      const latest = points[points.length - 1];
+      const latestEl = document.getElementById('latest-' + m.key);
+      if (latestEl) {
+        const latestDisplay = m.key === 'broadJump'
+          ? (latest.displayValue || formatBroadJumpLabel(latest.value))
+          : latest.value;
+        latestEl.textContent = 'Latest: ' + latestDisplay + (latest.reps ? ' x' + latest.reps : '');
+      }
+
+      const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: points.map(p => p.date.replace(/-\s*/,' ')),
+          datasets: [{
+            data: points.map(p => p.value),
+            borderColor: '#ff5252',
+            backgroundColor: 'rgba(255,82,82,0.1)',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#ff5252',
+            tension: 0.25,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const p = points[context.dataIndex];
+                  let label = m.label + ': ';
+                  if (m.key === 'broadJump') {
+                    label += (p.displayValue || formatBroadJumpLabel(p.value));
+                  } else {
+                    label += p.value;
+                  }
+                  if (p.reps) label += ' x ' + p.reps + ' reps';
+                  return label;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#2a2a2a' } },
+            y: {
+              ticks: {
+                color: '#888',
+                font: { size: 10 },
+                callback: m.key === 'broadJump' ? function(val) {
+                  const feet = Math.floor(val);
+                  const inches = Math.round((val - feet) * 12);
+                  return feet + "'" + inches + '"';
+                } : undefined
+              },
+              grid: { color: '#2a2a2a' }
+            }
+          }
+        }
+      });
+      chartInstances.push(chart);
+    });
+  }
+
+  async function showDashboard(name, targetElId) {
+    const target = document.getElementById(targetElId);
+    target.innerHTML = '<div class="loading-spinner-wrap"><span class="spinner show"></span></div>';
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+      const data = await fetchAthleteHistory(name);
+      if (data.error) {
+        target.innerHTML = '<div class="athlete-search-result">⚠ ' + data.error + '</div>';
+        return;
+      }
+
+      // Strip any data points where the date label is "PRs" -- these are
+      // PR snapshot values, not real session data, and make charts look
+      // like regressions from the very first point.
+      const cleanSeries = {};
+      for (const [key, points] of Object.entries(data.series || {})) {
+        cleanSeries[key] = points.filter(p => {
+          const d = String(p.date || '').trim().toUpperCase();
+          return d !== 'PRS' && d !== 'PR';
+        });
+      }
+      target.innerHTML =
+        '<button class="back-link" id="back-' + targetElId + '">‹ Back to search</button>' +
+        '<div class="dashboard-name-header">' + data.athleteName + '</div>' +
+        '<div class="dashboard-sub">Attendance</div>' +
+        renderAttendanceCard(data.attendance) +
+        '<div class="dashboard-sub">Personal records</div>' +
+        renderPRGrid(data.prs) +
+        '<div class="dashboard-sub" style="margin-top:6px;">Progress over time</div>' +
+        renderChartsHTML();
+
+      document.getElementById('back-' + targetElId).addEventListener('click', () => {
+        destroyCharts();
+        target.innerHTML = '';
+      });
+
+      drawCharts(cleanSeries);
+    } catch (err) {
+      target.innerHTML = '<div class="athlete-search-result">⚠ Could not load data: ' + err.message + '</div>';
+    }
+  }
+
+  function exportCSV() {
+    const rows = [['Name','Type','Points','Time','Team'],...log.map(l=>[l.name,l.type,l.pts,l.time,l.team||''])];
+    const csv = rows.map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv],{type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'checkin_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  }
+
+  function setupMyProgressSearch() {
+    const input = document.getElementById('myprogress-search');
+    const results = document.getElementById('myprogress-results');
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      if (q.length < 2) { results.innerHTML = ''; return; }
+      const matches = ATHLETES.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8);
+      if (!matches.length) { results.innerHTML = '<div class="athlete-search-result">No matches</div>'; return; }
+      results.innerHTML = '';
+      const list = document.createElement('div');
+      list.className = 'player-list';
+      matches.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.innerHTML = '<div class="player-name">' + a.name + '</div>';
+        div.onclick = () => {
+          input.value = '';
+          results.innerHTML = '';
+          showDashboard(a.name, 'myprogress-dashboard');
+        };
+        list.appendChild(div);
+      });
+      results.appendChild(list);
+    });
+  }
+
+  function setupRosterSearch() {
+    document.getElementById('roster-search').addEventListener('input', function() {
+      const q = this.value.toLowerCase();
+      const filtered = q ? rosterNames.filter(n => n.toLowerCase().includes(q)) : rosterNames;
+      renderRosterList(filtered);
+    });
+  }
+
+  document.getElementById('search').addEventListener('input', filterPlayers);
+  document.getElementById('checkin-btn').addEventListener('click', doCheckin);
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('chip-ontime').addEventListener('click', () => selectType('on-time', 10));
+  document.getElementById('chip-late').addEventListener('click', () => selectType('late', 5));
+  document.getElementById('chip-ws').addEventListener('click', () => selectType('wrong-shirt-on-time', 9));
+  document.getElementById('chip-wsl').addEventListener('click', () => selectType('wrong-shirt-late', 4));
+  document.getElementById('tab-checkin').addEventListener('click', () => switchTab('checkin'));
+  document.getElementById('tab-myprogress').addEventListener('click', () => switchTab('myprogress'));
+  document.getElementById('tab-coach').addEventListener('click', () => switchTab('coach'));
+  document.getElementById('tab-roster').addEventListener('click', () => switchTab('roster'));
+  document.getElementById('test-toggle').addEventListener('click', function() {
+    testMode = !testMode;
+    this.textContent = testMode ? 'On' : 'Off';
+    this.classList.toggle('on', testMode);
+    refreshSession();
+  });
+
+  renderList(ATHLETES);
+  refreshSession();
+  setInterval(refreshSession, 1000);
+  setupMyProgressSearch();
+  setupRosterSearch();
+})();
+</script>
+</body>
+</html>
 
