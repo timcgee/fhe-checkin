@@ -261,13 +261,13 @@
     '2026-06-23': { hour: 10, quarter: 'Q2' },
     '2026-06-24': { hour: 10, quarter: 'Q2' },
     '2026-06-25': { hour: 10, quarter: 'Q2' },
-    '2026-07-07': { hour: 7,  quarter: 'Q2' },
+    '2026-07-07': { hour: 6, minute: 30, quarter: 'Q2' },
     '2026-07-08': { hour: 10, quarter: 'Q2' },
     '2026-07-09': { hour: 10, quarter: 'Q2' },
     '2026-07-14': { hour: 10, quarter: 'Q3' },
     '2026-07-15': { hour: 10, quarter: 'Q3' },
     '2026-07-16': { hour: 10, quarter: 'Q3' },
-    '2026-07-21': { hour: 7,  quarter: 'Q3' },
+    '2026-07-21': { hour: 6, minute: 30, quarter: 'Q3' },
     '2026-07-22': { hour: 10, quarter: 'Q3' },
     '2026-07-23': { hour: 10, quarter: 'Q3' },
     '2026-07-28': { hour: 10, quarter: 'Q4' },
@@ -318,7 +318,7 @@
   let submitting = false;
   let testMode = false;
 
-  function fmtHour(h) { return h === 7 ? '7:00 AM' : '10:00 AM'; }
+  function fmtHour(h, m) { if (h === 6 && m === 30) return '6:30 AM'; if (h === 7) return '7:00 AM'; return '10:00 AM'; }
 
   function refreshSession() {
     const now = new Date();
@@ -329,7 +329,7 @@
     const sched = SCHEDULE[key];
     if (sched || testMode) {
       activeSession = sched || { hour: 10, quarter: 'TEST' };
-      const pillLabel = sched ? (sched.quarter + ' · cutoff ' + fmtHour(sched.hour)) : 'TEST MODE · no real date match';
+      const pillLabel = sched ? (sched.quarter + ' · cutoff ' + fmtHour(sched.hour, sched.minute)) : 'TEST MODE · no real date match';
       document.getElementById('session-name').innerHTML = dateStr + '<br><span class="quarter-pill">' + pillLabel + '</span>';
       document.getElementById('no-session').style.display = 'none';
       document.getElementById('active-checkin-area').style.display = 'block';
@@ -349,7 +349,7 @@
   function isOnTime() {
     if (!activeSession) return true;
     const now = new Date();
-    return now.getHours() < activeSession.hour || (now.getHours() === activeSession.hour && now.getMinutes() === 0);
+    const cutoffMins = (activeSession.hour * 60) + (activeSession.minute || 0); const nowMins = now.getHours() * 60 + now.getMinutes(); return nowMins <= cutoffMins;
   }
 
   function renderList(athletes) {
@@ -380,8 +380,8 @@
     document.getElementById('sel-name').textContent = a.name;
     const onT = isOnTime();
     document.getElementById('sel-sub').textContent = onT
-      ? ('On time — cutoff is ' + fmtHour(activeSession.hour))
-      : ('Past the ' + fmtHour(activeSession.hour) + ' cutoff');
+      ? ('On time — cutoff is ' + fmtHour(activeSession.hour, activeSession.minute))
+      : ('Past the ' + fmtHour(activeSession.hour, activeSession.minute) + ' cutoff');
     selectedType = onT ? 'on-time' : 'late';
     selectedPts = onT ? 10 : 5;
     document.querySelectorAll('.pts-chip').forEach(c => c.classList.remove('active'));
@@ -830,4 +830,3 @@
 </script>
 </body>
 </html>
-
